@@ -70,6 +70,33 @@ window.core = (function () {
 
                         return existingShape;
                     },
+                    Convex: function (existingShape, shape, body) {
+                        var cx = translateX(body.position[0]).toFixed(2),
+                            cy = translateY(body.position[1]).toFixed(2),
+                            px = translateX(body.previousPosition[0]).toFixed(2),
+                            py = translateY(body.previousPosition[1]).toFixed(2),
+                            path;
+
+                        path = "M" + shape.vertices.map(function (f32Array) {
+                            return translateX(body.position[0] + f32Array[0])
+                                + ","
+                                +  (translateY(body.position[1] + f32Array[1]));
+                        }).join("L") + "Z";
+
+                        if (!existingShape) {
+                            existingShape = paper.path(path).attr(fillStyle).attr(strokeStyle);
+                            applyCustomStyles(existingShape, shape);
+                        } else if (cx !== px || cy !== py) {
+                            console.log("path: ", path);
+                            existingShape.attr("path", path);
+                        }
+
+
+                        if (body.angle) {
+                            rotateShape(existingShape, body.angle, cx, cy);
+                        }
+                        return existingShape;
+                    },
                     Circle: function (existingShape, shape, body) {
                         var x = translateX(body.position[0]),
                             y = translateY(body.position[1]),
