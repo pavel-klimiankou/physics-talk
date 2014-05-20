@@ -1,19 +1,11 @@
 window.core = (function () {
-    var demoViewport = (function (x, y) {
-            return {
-                x: x,
-                y: y,
-                width: window.innerWidth - x - 2,//borders
-                height: window.innerHeight - y - 2,
-                scale: window.innerHeight / 20
-            };
-        })(0, 0),
-        createRenderer = function () {
-            var screenX = demoViewport.x,
-                screenY = demoViewport.y,
-                screenWidth = demoViewport.width,
-                screenHeight = demoViewport.height,
-                k = demoViewport.scale,
+    var
+        createRenderer = function (viewport) {
+            var screenX = viewport.x,
+                screenY = viewport.y,
+                screenWidth = viewport.width,
+                screenHeight = viewport.height,
+                k = viewport.scale,
                 paper = Raphael(screenX, screenY, screenWidth, screenHeight),
                 knownShapes = {},
                 translate = function (param) {
@@ -213,21 +205,77 @@ window.core = (function () {
 
             return [rightSide, bottomLine, leftSide];
         },
-        callbacks = [];
+        createViewport = function () {
+            var x = 0, y = 0,
+                availWidth = window.innerWidth - x - 2,
+                availHeight = window.innerHeight - y - 2,
+                w = availWidth,
+                config = /scale=(\d+)x(\d+)/ig.exec(window.location.search),
+                kw = config && +config[1],
+                kh = config && +config[2],
+                h = availHeight;
 
+            if (kw && kh) {
+                h = w / kw * kh;
+                if (h > availHeight) {
+                    h = availHeight;
+                    w = availHeight / kh * kw;
+                }
+                y = (availHeight - h) / 2;
+                x = (availWidth - w) / 2;
+            } else {
+                h = availHeight;
+            }
+
+            return {
+                x: x,
+                y: y,
+                width: w,
+                height: h,
+                scale: h / 20
+            };
+        },
+        initializers = (function () {
+            var callbacks = [],
+                self;
+
+            return self = {
+                push: function (callback) {
+                    callbacks.push(callback);
+                },
+                go: function () {
+                    var env = {},
+                        demoViewport = createViewport(),
+                        execInitializer = function (initializer) {
+                            initializer(env);
+                        };
+
+                    env.minX = -demoViewport.width / 2 / demoViewport.scale;
+                    env.maxX = -env.minX;
+                    env.minY = -demoViewport.height / 2 / demoViewport.scale;
+                    env.maxY = -env.minY;
+
+                    env.renderer = createRenderer(demoViewport);
+
+                    env.addSurroundingPlanes = function (world) {
+                        return addSurroundingPlanes(world, env.minX, env.maxX, env.minY)
+                    };
+
+                    self.push = execInitializer;
+
+                    while (callbacks.length) {
+                        execInitializer(callbacks.shift());
+                    }
+                }
+            };
+        })();
+
+
+    document.addEventListener("DOMContentLoaded", function() {
+        initializers.go();
+    });
 
     return function (callback) {
-        var env = {};
-
-        env.minX = -demoViewport.width / 2 / demoViewport.scale;
-        env.maxX = -env.minX;
-        env.minY = -demoViewport.height / 2 / demoViewport.scale;
-        env.maxY = -env.minY;
-        env.renderer = createRenderer();
-        env.addSurroundingPlanes = function (world) {
-            return addSurroundingPlanes(world, env.minX, env.maxX, env.minY)
-        };
-
-        callback(env);
+        return initializers.push(callback);
     };
 })();
